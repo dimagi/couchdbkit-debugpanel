@@ -1,0 +1,3 @@
+include README.rst
+recursive-include couchdebugpanel/static *
+recursive-include couchdebugpanel/templates *

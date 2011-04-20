@@ -10,6 +10,7 @@ setup(
     author_email='information@dimagi.com',
     url='http://www.dimagi.com/',
     packages = find_packages(exclude=['*.pyc']),
+    include_package_data = True,
     install_requires = [
         "restkit", "couchdbkit", "django-debug-toolbar",
     ],

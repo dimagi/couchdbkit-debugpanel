@@ -11,7 +11,7 @@ views in any other way is generally not advised.
 from django.conf import settings
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render_to_response
-from django.utils import simplejson
+import simplejson
 from django.utils.hashcompat import sha_constructor
 from dimagi.utils.couch.database import get_db
 

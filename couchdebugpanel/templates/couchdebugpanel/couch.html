@@ -19,6 +19,7 @@ $(document).ready(function() {
 	<thead>
 		<tr>
 			<th>{% trans "Time" %}&nbsp;(ms)</th>
+			<th>{% trans "Rows" %}</th>
 			<th>{% trans "Action" %}</th>
             <th>{% trans 'Stacktrace' %}</th>
             <th>{% trans 'View Name' %}</th>
@@ -29,6 +30,7 @@ $(document).ready(function() {
 		{% for query in queries %}
 			<tr class="{% cycle 'djDebugOdd' 'djDebugEven' %}">
 				<td>{{ query.duration|floatformat:"2" }}</td>
+				<td>{{ query.total_rows }}</td>
 				<td>
 				{% if query.view_params %}
                     <a class="remoteCall" href="/__debug__/couch_select/?viewpath={{ query.view_path_safe|urlencode }}&amp;params={{ query.view_params|urlencode }}&amp;duration={{ query.duration|floatformat:"2"|urlencode }}&amp;hash={{ query.hash }}">View</a><br />

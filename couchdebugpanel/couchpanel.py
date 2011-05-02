@@ -113,7 +113,7 @@ class CouchDBLoggingPanel(DebugPanel):
     def content(self):
         width_ratio_tally = 0
         for query in self._key_queries:
-            query['view_params'] = str(query['params'])
+            query['view_params'] = query['params']
             try:
                 query['width_ratio'] = (query['duration'] / self._couch_time) * 100
             except ZeroDivisionError:
@@ -147,20 +147,28 @@ DEFAULT_UUID_BATCH_COUNT = 1000
 
 couch_view_queries = []
 
+def process_key(key_obj):
+   if isinstance(key_obj, list):
+       key_obj = [unicode(x).encode('utf-8') for x in key_obj]
+   else:
+       key_obj = key_obj.encode('utf-8')
+   return key_obj
+
+
+
 
 class DebugViewResults(ViewResults):
     def _fetch_if_needed(self):
-        #todo: hacky way of makijng sure unicode is not in the keys
+        #todo: hacky way of making sure unicode is not in the keys
         newparams = self.params.copy()
         if newparams.has_key('key'):
-            newparams['key'] = str(newparams['key'])
+            newparams['key'] = process_key(newparams['key'])
         if newparams.has_key('startkey'):
-            newparams['startkey'] = str(newparams['startkey'])
+            newparams['startkey'] = process_key(newparams['startkey'])
         if newparams.has_key('endkey'):
-            newparams['endkey'] = str(newparams['endkey'])
+            newparams['endkey'] = process_key(newparams['endkey'])
         if newparams.has_key('keys'):
-            newparams['keys'] = str(newparams['keys'])
-        #print self.params
+            newparams['keys'] = process_key(newparams['keys'])
         start = datetime.now()
 
         if not self._result_cache:
@@ -174,7 +182,6 @@ class DebugViewResults(ViewResults):
         view_path_arr.pop(0) #pop out the leading _design
         view_path_arr.pop(1) #pop out the middle _view
         view_path_display = '/'.join(view_path_arr)
-        #print view_path_display
 
         couch_view_queries.append({
                 'view_path': self.view.view_path,
@@ -187,6 +194,7 @@ class DebugViewResults(ViewResults):
                 'start_time': start,
                 'stop_time': stop,
                 'is_slow': (duration > SQL_WARNING_THRESHOLD),
+		'total_rows': len(self._result_cache.get('rows', [])),
                 #'is_cached': is_cached,
                 #'is_reduce': sql.lower().strip().startswith('select'),
                 #'template_info': template_info,

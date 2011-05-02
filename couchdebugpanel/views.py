@@ -48,8 +48,10 @@ def couch_select(request):
         return HttpResponseBadRequest('Tamper alert') # SQL Tampering alert
     db = get_db()
     params = params.replace("'",'"').replace("None", 'null').replace('True', 'true')
-    print params
-    params = simplejson.loads(params) #simplejson requires doublequotes for keys, nasty, None is not parseable by simplejson, converting to null
+    try:
+        params = simplejson.loads(params) #simplejson requires doublequotes for keys, nasty, None is not parseable by simplejson, converting to null
+    except Exception, ex:
+	raise Exception("Error loading json: %s, Json: %s" % (ex, params))
 
     kp = {}
     for k in params.keys():

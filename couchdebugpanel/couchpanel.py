@@ -154,9 +154,6 @@ def process_key(key_obj):
        key_obj = key_obj.encode('utf-8')
    return key_obj
 
-
-
-
 class DebugViewResults(ViewResults):
     def _fetch_if_needed(self):
         #todo: hacky way of making sure unicode is not in the keys

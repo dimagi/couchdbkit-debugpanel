@@ -77,7 +77,7 @@ class CouchDBLoggingPanel(DebugPanel):
 
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        self._offset = len(couch_view_queries)
+        self._offset = len(couchdbkit.client.ViewResults._queries)
         self._couch_time = 0
         self._key_queries = []
 
@@ -88,7 +88,7 @@ class CouchDBLoggingPanel(DebugPanel):
         return _("CouchDB")
 
     def nav_subtitle(self):
-        self._key_queries = couch_view_queries[self._offset:]
+        self._key_queries = couchdbkit.client.ViewResults._queries[self._offset:]
         self._couch_time = sum([q['duration'] for q in self._key_queries])
         num_queries = len(self._key_queries)
         ## TODO l10n: use ngettext
@@ -155,6 +155,7 @@ def process_key(key_obj):
    return key_obj
 
 class DebugViewResults(ViewResults):
+    _queries = []
     def _fetch_if_needed(self):
         #todo: hacky way of making sure unicode is not in the keys
         newparams = self.params.copy()
@@ -180,7 +181,7 @@ class DebugViewResults(ViewResults):
         view_path_arr.pop(1) #pop out the middle _view
         view_path_display = '/'.join(view_path_arr)
 
-        couch_view_queries.append({
+        self._queries.append({
                 'view_path': self.view.view_path,
                 'view_path_safe': self.view.view_path.replace('/','|'),
                 'view_path_display': view_path_display,

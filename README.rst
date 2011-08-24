@@ -9,10 +9,15 @@ In your settings.py, INSTALLED_APPS, add:
     'couchdebugpanel',
     'dimagi.utils', #this will be removed in a later update
 
+As you always must for debug_toolbar, to MIDDLEWARE_CLASSES add:
+::
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+
 In your DEBUG_TOOLBAR_PANELS, add:
 ::
-    'couchdebugtoolbar.CouchDBLoggingPanel'
-    #you should also consider disabling the LoggingPanel because couchdbkit/restkit uses extensive logging by default.  Either suppress the logging level on couchdbkit or just disable this panel, or adjusting restkit and couchdbkit's debug levels manually so as to not overload the LoggingPanel
+    'couchdebugpanel.CouchDBLoggingPanel'
+
+(You should also consider disabling the LoggingPanel because couchdbkit/restkit uses extensive logging by default.  Either suppress the logging level on couchdbkit or just disable this panel, or adjusting restkit and couchdbkit's debug levels manually so as to not overload the LoggingPanel.)
 
 For a regular django proejct, you'll need to add the debugpanel to your urls.py:
 ::

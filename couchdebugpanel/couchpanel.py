@@ -203,7 +203,7 @@ class DebugDatabase(Database):
                 'view_path_safe': 'get',
                 'view_path_display': view_path_display,
                 'duration': duration,
-                'params': '',
+                'params': {'docid' : docid},
                 'hash': sha_constructor(settings.SECRET_KEY + str(newparams) + docid).hexdigest(),
                 'stacktrace': stacktrace,
                 'start_time': start,

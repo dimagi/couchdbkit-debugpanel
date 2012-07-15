@@ -1,3 +1,4 @@
 include README.rst
 recursive-include couchdebugpanel/static *
+recursive-include couchdebugpanel/static/prettify *
 recursive-include couchdebugpanel/templates *

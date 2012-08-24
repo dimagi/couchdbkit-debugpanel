@@ -13,6 +13,7 @@ import threading
 from django.template.loader import render_to_string
 from django.views.debug import linebreak_iter
 import couchdbkit
+from couchdbkit import resource
 
 # Figure out some paths
 django_path = os.path.realpath(os.path.dirname(django.__file__))
@@ -134,7 +135,7 @@ class CouchDBLoggingPanel(DebugPanel):
 
 # -*- coding: utf-8 -
 from datetime import  datetime
-from couchdbkit.client import   View, Database, ViewResults
+from couchdbkit.client import Database, ViewResults
 from django.utils.hashcompat import sha_constructor
 
 
@@ -175,7 +176,8 @@ class DebugDatabase(Database):
         #end debug panel
 
 
-        #Database.open_doc
+        ############################
+        #Start Database.open_doc
         wrapper = None
         if "wrapper" in params:
             wrapper = params.pop("wrapper")
@@ -184,11 +186,14 @@ class DebugDatabase(Database):
             if not hasattr(schema, "wrap"):
                 raise TypeError("invalid schema")
             wrapper = schema.wrap
-        #end Database.open_doc
 
-        #Debug Panel data collection
+        docid = resource.escape_docid(docid)
         doc = self.res.get(docid, **params).json_body
+        #End Database.open_doc
+        #############################
 
+        #############################
+        #Debug Panel data collection
         stop = datetime.now()
         duration = ms_from_timedelta(stop - start)
         stacktrace = tidy_stacktrace(traceback.extract_stack())
@@ -216,10 +221,12 @@ class DebugDatabase(Database):
             })
 
         #end debug panel data collection
+        ################################
 
 
 
-        #resume original Database.open_doc
+        ##################################
+        #Resume original Database.open_doc
         if wrapper is not None:
             if not callable(wrapper):
                 raise TypeError("wrapper isn't a callable")
@@ -232,7 +239,32 @@ couchdbkit.client.Database = DebugDatabase
 
 
 class DebugViewResults(ViewResults):
-    def _fetch_if_needed(self):
+    def fetch(self):
+        """ Overrided 
+        fetch results and cache them 
+        """
+        # reset dynamic keys
+        for key in  self._dynamic_keys:
+            try:
+                delattr(self, key)
+            except:
+                pass
+        self._dynamic_keys = []
+
+        self._result_cache = self.fetch_raw().json_body
+        self._total_rows = self._result_cache.get('total_rows')
+        self._offset = self._result_cache.get('offset', 0)
+
+        # add key in view results that could be added by an external
+        # like couchdb-lucene
+        for key in self._result_cache.keys():
+            if key not in ["total_rows", "offset", "rows"]:
+                self._dynamic_keys.append(key)
+                setattr(self, key, self._result_cache[key])
+
+
+
+    def foo_fetch_if_needed(self):
         #todo: hacky way of making sure unicode is not in the keys
         newparams = self.params.copy()
         if newparams.has_key('key'):

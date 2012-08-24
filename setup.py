@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='couchdebugpanel',
-    version='0.0.1',
+    version='0.0.2',
     description='A CouchDBkit panel for the django debug toolbar',
     author='Dimagi',
     author_email='information@dimagi.com',

@@ -2,13 +2,12 @@
 import SocketServer
 import logging
 import traceback
-from debug_toolbar.panels.sql import reformat_sql, reformat_sql
 import django
 from django.conf import settings #your django settings
 from django.utils.translation import ugettext_lazy as _
 import os
 
-from debug_toolbar.panels import DebugPanel
+from debug_toolbar.panels import Panel
 import threading
 from django.template.loader import render_to_string
 from django.views.debug import linebreak_iter
@@ -71,8 +70,12 @@ handler = CouchThreadTrackingHandler()
 logging.root.setLevel(logging.NOTSET)
 logging.root.addHandler(handler)
 
-class CouchDBLoggingPanel(DebugPanel):
-    """adapted from the django debug toolbar's LoggingPanel.  Instead, intercept the couchdbkit restkit logging calls to make a tidier display of couchdb calls being made."""
+class CouchDBLoggingPanel(Panel):
+    """
+    Adapted from the django debug toolbar's LoggingPanel.
+    Instead, intercept the couchdbkit restkit logging calls to make a tidier
+    display of couchdb calls being made.
+    """
     name = 'CouchDB'
     has_content = True
 
@@ -107,10 +110,16 @@ class CouchDBLoggingPanel(DebugPanel):
         handler.clear_records()
         return records
 
-    def url(self):
-        return ''
+    @classmethod
+    def get_urls(cls):
+        from django.conf.urls import patterns, url
+        return patterns('',
+            url(r'^couch_select/$',
+                'couchdebugpanel.views.couch_select',
+                name='couch_select'),
+        )
 
-
+    @property
     def content(self):
         width_ratio_tally = 0
         for query in self._key_queries:
@@ -122,21 +131,17 @@ class CouchDBLoggingPanel(DebugPanel):
             query['start_offset'] = width_ratio_tally
             width_ratio_tally += query['width_ratio']
 
-        context = self.context.copy()
-        context.update({
+        context = {
             'queries': self._key_queries,
             'couch_time': self._couch_time,
-        })
+        }
         return render_to_string('couchdebugpanel/couch.html', context)
-
-
-
 
 
 # -*- coding: utf-8 -
 from datetime import  datetime
 from couchdbkit.client import Database, ViewResults
-from django.utils.hashcompat import sha_constructor
+from hashlib import sha1
 
 
 SQL_WARNING_THRESHOLD = getattr(settings, 'DEBUG_TOOLBAR_CONFIG', {}) \
@@ -148,12 +153,14 @@ DEFAULT_UUID_BATCH_COUNT = 1000
 
 couch_view_queries = []
 
+
 def process_key(key_obj):
-   if isinstance(key_obj, list):
-       key_obj = [unicode(x).encode('utf-8') for x in key_obj]
-   else:
-       key_obj = key_obj.encode('utf-8')
-   return key_obj
+    if isinstance(key_obj, list):
+        key_obj = [unicode(x).encode('utf-8') for x in key_obj]
+    else:
+        key_obj = key_obj.encode('utf-8')
+        return key_obj
+
 
 class DebugDatabase(Database):
     _queries = []
@@ -209,12 +216,12 @@ class DebugDatabase(Database):
                 'view_path_display': view_path_display,
                 'duration': duration,
                 'params': {'docid' : docid},
-                'hash': sha_constructor(settings.SECRET_KEY + str(newparams) + docid).hexdigest(),
+                'hash': sha1(settings.SECRET_KEY + str(newparams) + docid).hexdigest(),
                 'stacktrace': stacktrace,
                 'start_time': start,
                 'stop_time': stop,
                 'is_slow': (duration > SQL_WARNING_THRESHOLD),
-		'total_rows': 1,
+                'total_rows': 1,
                 #'is_cached': is_cached,
                 #'is_reduce': sql.lower().strip().startswith('select'),
                 #'template_info': template_info,
@@ -235,38 +242,9 @@ class DebugDatabase(Database):
 
         return doc
     get = debug_open_doc
-couchdbkit.client.Database = DebugDatabase
 
-
-class DebugViewResults(ViewResults):
-    def fetch(self):
-        """ Overrided 
-        fetch results and cache them 
-        """
-        # reset dynamic keys
-        for key in  self._dynamic_keys:
-            try:
-                delattr(self, key)
-            except:
-                pass
-        self._dynamic_keys = []
-
-        self._result_cache = self.fetch_raw().json_body
-        self._total_rows = self._result_cache.get('total_rows')
-        self._offset = self._result_cache.get('offset', 0)
-
-        # add key in view results that could be added by an external
-        # like couchdb-lucene
-        for key in self._result_cache.keys():
-            if key not in ["total_rows", "offset", "rows"]:
-                self._dynamic_keys.append(key)
-                setattr(self, key, self._result_cache[key])
-
-
-
-    def foo_fetch_if_needed(self):
-        #todo: hacky way of making sure unicode is not in the keys
-        newparams = self.params.copy()
+    def debug_raw_view(self, view_path, params):
+        newparams = params.copy()
         if newparams.has_key('key'):
             newparams['key'] = process_key(newparams['key'])
         if newparams.has_key('startkey'):
@@ -277,37 +255,38 @@ class DebugViewResults(ViewResults):
             newparams['keys'] = process_key(newparams['keys'])
         start = datetime.now()
 
-        if not self._result_cache:
-            self.fetch()
+        result = super(DebugDatabase, self).raw_view(view_path, params)
 
         stop = datetime.now()
         duration = ms_from_timedelta(stop - start)
         stacktrace = tidy_stacktrace(traceback.extract_stack())
 
-        view_path_arr = self.view.view_path.split('/')
+        view_path_arr = view_path.split('/')
         view_path_arr.pop(0) #pop out the leading _design
         view_path_arr.pop(1) #pop out the middle _view
         view_path_display = '/'.join(view_path_arr)
 
-        self.view._db._queries.append({
-                'view_path': self.view.view_path,
-                'view_path_safe': self.view.view_path.replace('/','|'),
-                'view_path_display': view_path_display,
-                'duration': duration,
-                'params': newparams,
-                'hash': sha_constructor(settings.SECRET_KEY + str(newparams) + str(self.view.view_path)).hexdigest(),
-                'stacktrace': stacktrace,
-                'start_time': start,
-                'stop_time': stop,
-                'is_slow': (duration > SQL_WARNING_THRESHOLD),
-		'total_rows': len(self._result_cache.get('rows', [])),
-                #'is_cached': is_cached,
-                #'is_reduce': sql.lower().strip().startswith('select'),
-                #'template_info': template_info,
-            })
+        self._queries.append({
+            'view_path': view_path,
+            'view_path_safe': view_path.replace('/','|'),
+            'view_path_display': view_path_display,
+            'duration': duration,
+            'params': newparams,
+            'hash': sha1(settings.SECRET_KEY + str(newparams) + str(view_path)).hexdigest(),
+            'stacktrace': stacktrace,
+            'start_time': start,
+            'stop_time': stop,
+            'is_slow': (duration > SQL_WARNING_THRESHOLD),
+            # 'total_rows': len(self._result_cache.get('rows', [])),
+            #'is_cached': is_cached,
+            #'is_reduce': sql.lower().strip().startswith('select'),
+            #'template_info': template_info,
+        })
+        return result
+    raw_view = debug_raw_view
 
 
-couchdbkit.client.ViewResults = DebugViewResults
+couchdbkit.client.Database = DebugDatabase
 
 
 def get_template_info(source, context_lines=3):

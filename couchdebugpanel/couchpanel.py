@@ -162,6 +162,15 @@ def process_key(key_obj):
         return key_obj
 
 
+class DebugResult(object):
+    def __init__(self, result):
+        self.result = result
+        self.json_body = result.json_body
+
+    def __getattr__(self, key):
+        return getattr(self.result, key)
+
+
 class DebugDatabase(Database):
     _queries = []
     def debug_open_doc(self, docid, **params):
@@ -254,14 +263,6 @@ class DebugDatabase(Database):
         if newparams.has_key('keys'):
             newparams['keys'] = process_key(newparams['keys'])
         start = datetime.now()
-
-        class DebugResult(object):
-            def __init__(self, result):
-                self.result = result
-                self.json_body = result.json_body
-
-            def __getattr__(self, key):
-                return getattr(self.result, key)
 
         result = DebugResult(
             super(DebugDatabase, self).raw_view(view_path, params)

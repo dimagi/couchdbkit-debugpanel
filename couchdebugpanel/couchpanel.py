@@ -255,7 +255,17 @@ class DebugDatabase(Database):
             newparams['keys'] = process_key(newparams['keys'])
         start = datetime.now()
 
-        result = list(super(DebugDatabase, self).raw_view(view_path, params))
+        class DebugResult(object):
+            def __init__(self, result):
+                self.result = result
+                self.json_body = result.json_body
+
+            def __getattr__(self, key):
+                return getattr(self.result, key)
+
+        result = DebugResult(
+            super(DebugDatabase, self).raw_view(view_path, params)
+        )
 
         stop = datetime.now()
         duration = ms_from_timedelta(stop - start)
@@ -277,7 +287,7 @@ class DebugDatabase(Database):
             'start_time': start,
             'stop_time': stop,
             'is_slow': (duration > SQL_WARNING_THRESHOLD),
-            'total_rows': len(result),
+            'total_rows': result.json_body.get('total_rows', 0),
             #'is_cached': is_cached,
             #'is_reduce': sql.lower().strip().startswith('select'),
             #'template_info': template_info,

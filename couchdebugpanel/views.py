@@ -7,7 +7,7 @@ Helper views for the debug toolbar. These are dynamically installed when the
 debug toolbar is displayed, and typically can do Bad Things, so hooking up these
 views in any other way is generally not advised.
 """
-
+from hashlib import sha1
 from django.conf import settings
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render_to_response
@@ -15,7 +15,6 @@ try:
     import json as simplejson
 except ImportError:
     import simplejson
-from django.utils.hashcompat import sha_constructor
 from dimagi.utils.couch.database import get_db
 
 
@@ -38,14 +37,11 @@ def couch_select(request):
     view_path_raw = request.GET.get('viewpath', '').replace('|','/')
     params = str(request.GET.get('params', ''))
 
-
-
-    hash = sha_constructor(settings.SECRET_KEY + params + view_path_raw).hexdigest()
+    hash = sha1(settings.SECRET_KEY + params + view_path_raw).hexdigest()
     view_path_arr = view_path_raw.split('/')
     view_path_arr.pop(0) #pop out the leading _design
     view_path_arr.pop(1) #pop out the middle _view
     view_path = '/'.join(view_path_arr)
-
 
     if hash != request.GET.get('hash', ''):
         return HttpResponseBadRequest('Tamper alert') # SQL Tampering alert
@@ -54,7 +50,7 @@ def couch_select(request):
     try:
         params = simplejson.loads(params) #simplejson requires doublequotes for keys, nasty, None is not parseable by simplejson, converting to null
     except Exception, ex:
-	raise Exception("Error loading json: %s, Json: %s" % (ex, params))
+        raise Exception("Error loading json: %s, Json: %s" % (ex, params))
 
     kp = {}
     for k in params.keys():

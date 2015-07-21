@@ -2,13 +2,12 @@
 import SocketServer
 import logging
 import traceback
-from debug_toolbar.panels.sql import reformat_sql, reformat_sql
 import django
 from django.conf import settings #your django settings
 from django.utils.translation import ugettext_lazy as _
 import os
 
-from debug_toolbar.panels import DebugPanel
+from debug_toolbar.panels import Panel
 import threading
 from django.template.loader import render_to_string
 from django.views.debug import linebreak_iter
@@ -71,8 +70,12 @@ handler = CouchThreadTrackingHandler()
 logging.root.setLevel(logging.NOTSET)
 logging.root.addHandler(handler)
 
-class CouchDBLoggingPanel(DebugPanel):
-    """adapted from the django debug toolbar's LoggingPanel.  Instead, intercept the couchdbkit restkit logging calls to make a tidier display of couchdb calls being made."""
+class CouchDBLoggingPanel(Panel):
+    """
+    Adapted from the django debug toolbar's LoggingPanel.
+    Instead, intercept the couchdbkit restkit logging calls to make a tidier
+    display of couchdb calls being made.
+    """
     name = 'CouchDB'
     has_content = True
 
@@ -107,10 +110,17 @@ class CouchDBLoggingPanel(DebugPanel):
         handler.clear_records()
         return records
 
-    def url(self):
-        return ''
+    @classmethod
+    def get_urls(cls):
+        from django.conf.urls import patterns, url
+        _PREFIX = '__debug__'
+        return patterns('',
+            url(r'^%s/couch_select/$' % _PREFIX,
+                'couchdebugpanel.views.couch_select',
+                name='couch_select'),
+        )
 
-
+    @property
     def content(self):
         width_ratio_tally = 0
         for query in self._key_queries:
@@ -122,21 +132,17 @@ class CouchDBLoggingPanel(DebugPanel):
             query['start_offset'] = width_ratio_tally
             width_ratio_tally += query['width_ratio']
 
-        context = self.context.copy()
-        context.update({
+        context = {
             'queries': self._key_queries,
             'couch_time': self._couch_time,
-        })
+        }
         return render_to_string('couchdebugpanel/couch.html', context)
-
-
-
 
 
 # -*- coding: utf-8 -
 from datetime import  datetime
 from couchdbkit.client import Database, ViewResults
-from django.utils.hashcompat import sha_constructor
+from hashlib import sha1
 
 
 SQL_WARNING_THRESHOLD = getattr(settings, 'DEBUG_TOOLBAR_CONFIG', {}) \
@@ -148,12 +154,14 @@ DEFAULT_UUID_BATCH_COUNT = 1000
 
 couch_view_queries = []
 
+
 def process_key(key_obj):
-   if isinstance(key_obj, list):
-       key_obj = [unicode(x).encode('utf-8') for x in key_obj]
-   else:
-       key_obj = key_obj.encode('utf-8')
-   return key_obj
+    if isinstance(key_obj, list):
+        key_obj = [unicode(x).encode('utf-8') for x in key_obj]
+    else:
+        key_obj = key_obj.encode('utf-8')
+        return key_obj
+
 
 class DebugDatabase(Database):
     _queries = []
@@ -209,7 +217,7 @@ class DebugDatabase(Database):
                 'view_path_display': view_path_display,
                 'duration': duration,
                 'params': {'docid' : docid},
-                'hash': sha_constructor(settings.SECRET_KEY + str(newparams) + docid).hexdigest(),
+                'hash': sha1(settings.SECRET_KEY + str(newparams) + docid).hexdigest(),
                 'stacktrace': stacktrace,
                 'start_time': start,
                 'stop_time': stop,
@@ -295,7 +303,7 @@ class DebugViewResults(ViewResults):
                 'view_path_display': view_path_display,
                 'duration': duration,
                 'params': newparams,
-                'hash': sha_constructor(settings.SECRET_KEY + str(newparams) + str(self.view.view_path)).hexdigest(),
+                'hash': sha1(settings.SECRET_KEY + str(newparams) + str(self.view.view_path)).hexdigest(),
                 'stacktrace': stacktrace,
                 'start_time': start,
                 'stop_time': stop,

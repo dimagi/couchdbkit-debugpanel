@@ -1,18 +1,9 @@
 {% load i18n %}
 <script type="text/javascript" charset="utf-8">
 $(document).ready(function() {
-   toggle_content = function(elem) {
-			if (elem.is(':visible')) {
-				elem.hide();
-			} else {
-				elem.show();
-			}
-		}
-
-    $('#djDebugCouchDBPanel a.djSQLShowStacktrace').click(function() {
-				toggle_content($('.djSQLHideStacktraceDiv', $(this).parents('tr')));
-				return false;
-			});
+    $('a.djSQLShowStacktrace').click(function() {
+        $('.djSQLHideStacktraceDiv', $(this).parents('tr')).toggle();
+    });
 });
 </script>
 <table>

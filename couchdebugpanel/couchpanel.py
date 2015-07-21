@@ -255,7 +255,7 @@ class DebugDatabase(Database):
             newparams['keys'] = process_key(newparams['keys'])
         start = datetime.now()
 
-        result = super(DebugDatabase, self).raw_view(view_path, params)
+        result = list(super(DebugDatabase, self).raw_view(view_path, params))
 
         stop = datetime.now()
         duration = ms_from_timedelta(stop - start)
@@ -277,7 +277,7 @@ class DebugDatabase(Database):
             'start_time': start,
             'stop_time': stop,
             'is_slow': (duration > SQL_WARNING_THRESHOLD),
-            # 'total_rows': len(self._result_cache.get('rows', [])),
+            'total_rows': len(result),
             #'is_cached': is_cached,
             #'is_reduce': sql.lower().strip().startswith('select'),
             #'template_info': template_info,
